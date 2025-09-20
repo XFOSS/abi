@@ -36,6 +36,7 @@ logs/
 # Database files
 *.wdbx
 *.wdbx.wal
+*.wal
 *.db
 *.sqlite
 
@@ -66,9 +67,6 @@ perf.data*
 *.core
 
 # Binary executables
-abi
-abi-agent
-cell
 *.exe
 *.dll
 *.so

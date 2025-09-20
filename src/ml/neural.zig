@@ -13,13 +13,13 @@
 
 const std = @import("std");
 const math = std.math;
-const core = @import("../core/mod.zig");
-const abi = @import("../root.zig");
+const abi = @import("abi");
 const simd = @import("../simd/mod.zig");
-const memory_tracker = @import("../perf/memory_tracker.zig");
+const core = @import("core");
+const memory_tracker = @import("../monitoring/memory_tracker.zig");
 
 /// Re-export commonly used types
-pub const Allocator = core.Allocator;
+pub const Allocator = std.mem.Allocator;
 
 /// Neural network layer types
 pub const LayerType = enum {
@@ -523,8 +523,8 @@ pub const Layer = struct {
 
         // Initialize weights with Xavier/Glorot initialization
         const scale = @sqrt(2.0 / @as(f32, @floatFromInt(config.input_size + config.output_size)));
-        var rng = std.Random.DefaultPrng.init(@intCast(std.time.milliTimestamp()));
-        const random = rng.random();
+        var prng = std.Random.DefaultPrng.init(@intCast(std.time.milliTimestamp()));
+        var random = prng.random();
 
         for (self.weights) |*w| {
             w.* = (random.float(f32) * 2 - 1) * scale;
@@ -615,13 +615,13 @@ pub const Layer = struct {
 
         // Apply dropout during training
         if (self.dropout_rate > 0) {
-            var rng = std.Random.DefaultPrng.init(@intCast(std.time.milliTimestamp()));
-            const random = rng.random();
+            var prng = std.Random.DefaultPrng.init(@intCast(std.time.milliTimestamp()));
+            var random = prng.random();
             for (output) |*o| {
                 if (random.float(f32) < self.dropout_rate) {
                     o.* = 0;
                 } else {
-                    o.* /= (1.0 - self.dropout_rate); // Scale to maintain expected value
+                    o.* = o.* / (1.0 - self.dropout_rate);
                 }
             }
         }
@@ -757,18 +757,25 @@ pub const Layer = struct {
                 input,
                 self.weights[weights_start..weights_end],
             ) + self.biases[i];
+
+            // Simple dot product implementation
+            var sum: f32 = 0.0;
+            for (input, self.weights[weights_start..weights_end]) |a, b| {
+                sum += a * b;
+            }
+            output[i] = sum + self.biases[i];
             output[i] = self.activation.apply(output[i]);
         }
 
         // Apply dropout during training
         if (self.dropout_rate > 0) {
-            var rng = std.Random.DefaultPrng.init(@intCast(std.time.milliTimestamp()));
-            const random = rng.random();
+            var prng = std.Random.DefaultPrng.init(@intCast(std.time.milliTimestamp()));
+            var random = prng.random();
             for (output) |*o| {
                 if (random.float(f32) < self.dropout_rate) {
                     o.* = 0;
                 } else {
-                    o.* /= (1.0 - self.dropout_rate); // Scale to maintain expected value
+                    o.* = o.* / (1.0 - self.dropout_rate);
                 }
             }
         }
@@ -1213,6 +1220,3 @@ test "neural network basics" {
     const loss = try nn.trainStep(&input, &target, 0.1);
     try testing.expect(loss >= 0);
 }
-
-
-
