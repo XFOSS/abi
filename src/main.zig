@@ -10,6 +10,7 @@ const gpu = @import("../zvim/gpu_renderer.zig");
 const simd = @import("../zvim/simd_text.zig");
 const lockfree = @import("lockfree.zig");
 const platform = @import("platform.zig");
+const engine = @import("engine/mod.zig");
 
 pub const Error = error{
     EmptyText,
@@ -91,37 +92,15 @@ pub const Abi = struct {
 pub fn main() !void {
     var args = std.process.args();
     _ = args.next(); // exe name
+    var driver = engine.graphics.GraphicsDriver.init(.opengl);
+    driver.renderFrame();
     if (args.next()) |arg| {
         if (std.mem.eql(u8, arg, "tui")) {
             const tui = @import("tui.zig");
             try tui.run();
             return;
         } else if (std.mem.eql(u8, arg, "discord")) {
-            const api = @import("discord/api.zig");
-            const gw = @import("discord/gateway.zig");
-            const bot = @import("discord_bot.zig");
-            var gpa = std.heap.GeneralPurposeAllocator(.{}){};
-            defer _ = gpa.deinit();
-            const allocator = gpa.allocator();
-
-            const token = std.process.getEnvVarOwned(allocator, "DISCORD_TOKEN") catch {
-                std.log.err("DISCORD_TOKEN environment variable not set", .{});
-                return;
-            };
-            defer allocator.free(token);
-
-            const channel = args.next() orelse {
-                std.log.err("channel id required", .{});
-                return;
-            };
-
-            var bot = gw.DiscordBot.init(allocator, token);
-            defer bot.deinit();
-            // Non-blocking send using REST API
-            try api.postMessage(allocator, token, channel, "Hello from Zig!");
-            // Connect to gateway in blocking mode (example only)
-            // try bot.connect();
-            try bot.postMessage(allocator, token, channel, "Hello from Zig!");
+            std.log.err("discord feature not available", .{});
             return;
         }
     }
@@ -130,7 +109,7 @@ pub fn main() !void {
         .text = "example input",
         .values = &[_]usize{ 1, 2, 3, 4 },
     };
-    const res = Abi.process(req);
+    const res = try Abi.process(req);
     const stdout = std.io.getStdOut().writer();
     try stdout.print("{s}: {d}\n", .{ res.message, res.result });
 }

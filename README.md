@@ -1,6 +1,6 @@
 ### Quick Start
 
-A simple command-line client is provided in `agent_client.zig`. Set the `OPENAI_API_KEY` environment variable and run:
+A simple command-line client is provided in `agent_client.zig`. Make sure Zig 0.14.1 is installed (see <https://ziglang.org/download/>). Set the `OPENAI_API_KEY` environment variable and run:
 
 ```bash
 zig run agent_client.zig -- --persona Abbey
@@ -30,3 +30,6 @@ To predict a probability with the trained model:
 zig run local_ml.zig -- predict model.txt 1.2 3.4
 ```
 
+
+### Cell Framework Example
+This repository now includes a demonstration of the Cell framework using modern C++23 modules. See `cell_framework/README.md` for build instructions.

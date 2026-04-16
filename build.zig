@@ -5,7 +5,7 @@ pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
-    // ─── Feature flags for conditional compilation ───────────────────────────
+    // Feature flags for conditional compilation
     const options = b.addOptions();
     options.addOption(bool, "enable_gpu", b.option(bool, "gpu", "Enable GPU acceleration") orelse detectGPUSupport());
     options.addOption(bool, "enable_simd", b.option(bool, "simd", "Enable SIMD optimizations") orelse detectSIMDSupport());
@@ -20,26 +20,26 @@ pub fn build(b: *std.Build) void {
 
     const exe = b.addExecutable(.{
         .name = "abi",
-        .root_source_file = b.path("src/main.zig"),
+        .root_source_file = .{ .src_path = .{ .owner = b, .sub_path = "src/main.zig" } },
         .target = target,
         .optimize = platform_optimize,
     });
 
-    // ─── Optimization flags ──────────────────────────────────────────────────
+    // Optimization flags
     exe.link_function_sections = true;
     exe.link_gc_sections = true;
     if (platform_optimize == .ReleaseSmall or platform_optimize == .ReleaseFast) {
         exe.root_module.strip = true;
     }
 
-    // No external dependencies currently required.
+    // Dependencies
     exe.root_module.addOptions("build_options", options);
 
-    // ─── Platform-specific dependencies ──────────────────────────────────────
+    // Platform-specific dependencies
     switch (target.result.os.tag) {
         .linux => {
             exe.linkSystemLibrary("c");
-            if (b.option(bool, "enable_io_uring", "Enable io_uring support") orelse true) {
+            if (b.option(bool, "enable_io_uring", "Enable io_uring support") orelse false) {
                 exe.linkSystemLibrary("uring");
             }
         },
@@ -68,7 +68,7 @@ pub fn build(b: *std.Build) void {
     const unit_tests = b.addTest(.{
         .root_source_file = b.path("src/main.zig"),
         .target = target,
-        .optimize = optimize,
+        .optimize = platform_optimize,
     });
     unit_tests.root_module.addOptions("build_options", options);
     test_step.dependOn(&b.addRunArtifact(unit_tests).step);
