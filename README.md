@@ -1,152 +1,17 @@
-<div align="center">
+# 🚀 Abi AI Framework
 
-# ABI Framework
+var agent = try abi.ai.agent.Agent.init(allocator, .{
+    .name = "Assistant",
+    .max_retries = 3,
+});
+defer agent.deinit();
 
-<img src="https://img.shields.io/badge/Zig-0.16-F7A41D?style=for-the-badge&logo=zig&logoColor=white" alt="Zig 0.16"/>
-<img src="https://img.shields.io/badge/Status-Production_Ready-success?style=for-the-badge" alt="Status"/>
-<img src="https://img.shields.io/github/license/donaldfilimon/abi?style=for-the-badge" alt="License"/>
-
-<br/>
-
-<img src="https://img.shields.io/badge/build-passing-brightgreen?logo=github-actions&logoColor=white" alt="Build"/>
-<img src="https://img.shields.io/badge/tests-1290_passing-brightgreen?logo=checkmarx&logoColor=white" alt="Tests"/>
-<img src="https://img.shields.io/badge/coverage-85%25-yellow?logo=codecov&logoColor=white" alt="Coverage"/>
-
-<br/><br/>
-
-**A modern Zig 0.16 framework for AI services, vector search, and high-performance systems**
-
-[Quick Start](#-quick-start) · [Documentation](https://donaldfilimon.github.io/abi/) · [Examples](#-examples) · [Contributing](CONTRIBUTING.md)
-
-<br/>
-
-```
-    ╔═══════════════════════════════════════════════════════════════╗
-    ║   LLM Inference  ·  Vector Database  ·  GPU Acceleration      ║
-    ║   Agent Runtime  ·  Distributed Compute  ·  Training Pipelines║
-    ╚═══════════════════════════════════════════════════════════════╝
-```
-
-</div>
-
-## Why ABI?
-
-<table>
-<tr>
-<td width="33%" valign="top">
-
-### Lightning Fast
-Built with Zig for zero-cost abstractions, comptime optimization, and bare-metal performance. SIMD-accelerated operations throughout.
-
-</td>
-<td width="33%" valign="top">
-
-### Production Ready
-Battle-tested with 1296 tests (1290 passing, 6 skip), comprehensive error handling, graceful degradation, and circuit breakers for resilience.
-
-</td>
-<td width="33%" valign="top">
-
-### Fully Modular
-Enable only what you need. Every feature is toggleable at compile-time with zero overhead for disabled modules.
-
-</td>
-</tr>
-</table>
-
----
-
-## Highlights
-
-| Feature | Description | Status |
-|:--------|:------------|:------:|
-| **AI Runtime** | LLM inference with Llama-CPP parity, agent runtime, training pipelines | ![Ready](https://img.shields.io/badge/-Ready-success) |
-| **Vector Database** | WDBX with HNSW/IVF-PQ indexing, hybrid search, real-time analytics | ![Ready](https://img.shields.io/badge/-Ready-success) |
-| **GPU Acceleration** | CUDA, Vulkan, Metal (Accelerate/AMX), WebGPU, FPGA with unified API | ![Ready](https://img.shields.io/badge/-Ready-success) |
-| **Compute Engine** | Work-stealing scheduler, NUMA-aware, lock-free primitives | ![Ready](https://img.shields.io/badge/-Ready-success) |
-| **Distributed Network** | Raft consensus, node discovery, load balancing | ![Ready](https://img.shields.io/badge/-Ready-success) |
-| **Observability** | Metrics, tracing, profiling, circuit breakers | ![Ready](https://img.shields.io/badge/-Ready-success) |
-| **Interactive CLI** | TUI launcher, GPU dashboard, training monitor | ![Ready](https://img.shields.io/badge/-Ready-success) |
-| **Streaming API** | SSE/WebSocket inference, circuit breakers, session recovery | ![Ready](https://img.shields.io/badge/-Ready-success) |
-
----
-
-## Quick Start
-
-### Installation
-
-```bash
-git clone https://github.com/donaldfilimon/abi.git
-cd abi
-zig build
-zig build run -- --help
-```
-
-### Requirements
-
-| Dependency | Version | Required |
-|:-----------|:--------|:--------:|
-| Zig | 0.16.0-dev.2682+02142a54d | Yes |
-| Git | Any | Yes |
-| GPU Drivers | Latest | Optional |
-
-### Hello World
-
-```zig
-const std = @import("std");
-const abi = @import("abi");
-
-pub fn main() !void {
-    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
-    defer _ = gpa.deinit();
-    const allocator = gpa.allocator();
-
-    var app = try abi.App.initDefault(allocator);
-    defer app.deinit();
-
-    std.debug.print("ABI v{s} ready!\n", .{abi.version()});
-}
-```
-
----
-
-## API Migration (v2 Surface)
-
-ABI now exposes canonical v2 entrypoints only:
-
-- Use `abi.App` / `abi.AppBuilder` as the runtime types.
-- Use `abi.features.<name>` for feature modules and `abi.services.<name>` for service modules.
-- Use `abi.App.init(...)`, `abi.App.initDefault(...)`, and `abi.App.builder(...)` for app bootstrap.
-- Legacy aliases (`abi.Framework`, `abi.init*`, top-level `abi.<feature|service>`) are removed.
-
----
-
-## Examples
-
-<details open>
-<summary><b>AI Agent Chat</b></summary>
-
-```zig
-const abi = @import("abi");
-
-pub fn main() !void {
-    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
-    const allocator = gpa.allocator();
-    defer _ = gpa.deinit();
-
-    var agent = try abi.features.ai.Agent.init(allocator, .{
-        .name = "assistant",
-        .temperature = 0.7,
-        .enable_history = true,
-    });
-    defer agent.deinit();
-
-    const response = try agent.chat("Explain Zig's comptime in one sentence.", allocator);
-    defer allocator.free(response);
-
-    std.debug.print("Agent: {s}\n", .{response});
-}
-```
+[![Zig Version](https://img.shields.io/badge/Zig-0.16.0--dev.1225%2Bbf9082518-orange.svg)](https://ziglang.org/) • [Docs](https://donaldfilimon.github.io/abi/) • [CI: Pages](.github/workflows/deploy_docs.yml)
+[![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Platform](https://img.shields.io/badge/Platform-Cross--platform-green.svg)](https://github.com/yourusername/abi)
+[![Build Status](https://img.shields.io/badge/Build-Passing-brightgreen.svg)]()
+[![Tests](https://img.shields.io/badge/Tests-Passing-brightgreen.svg)]()
+[![Performance](https://img.shields.io/badge/Performance-2,777+%20ops%2Fsec-brightgreen.svg)]()
 
 </details>
 
@@ -154,7 +19,19 @@ pub fn main() !void {
 <summary><b>Vector Database</b></summary>
 
 ```zig
-const abi = @import("abi");
+const gpu = abi.gpu;
+
+var backend = try gpu.selectBackend(allocator);
+defer backend.deinit();
+
+### **Prerequisites**
+- **Zig 0.16.0-dev.1225+bf9082518** (GitHub Actions uses `mlugg/setup-zig@v2` pinned to this version)
+- GPU drivers (optional, for acceleration)
+- OpenAI API key (for AI agent features)
+
+## 🤝 Contributing
+
+We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details.
 
 pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
@@ -204,8 +81,9 @@ pub fn main() !void {
     const result = try gpu.createBuffer(4 * @sizeOf(f32), .{});
     defer { gpu.destroyBuffer(a); gpu.destroyBuffer(b); gpu.destroyBuffer(result); }
 
-    // Executes on GPU with automatic SIMD/scalar fallback
-    _ = try gpu.vectorAdd(a, b, result);
+// Add embeddings
+const embedding = [_]f32{0.1, 0.2, 0.3, /* ... */};
+const row_id = try db.addEmbedding(&embedding);
 
     var output: [4]f32 = undefined;
     try result.read(f32, &output);
@@ -484,6 +362,44 @@ zig build benchmarks
 zig build lint
 ```
 
+### **Windows Networking Notes**
+- Windows networking paths use Winsock on Windows to avoid ReadFile edge cases
+- Diagnostic tool: `zig build test-network` (Windows only)
+- PowerShell fixes: `fix_windows_networking.ps1`
+
+## 🤝 **Contributing**
+
+We welcome contributions! Please read our [Contributing Guide](CONTRIBUTING.md) for details.
+
+### **Development Workflow**
+1. **Fork and Clone**: Create a feature branch
+2. **Run Tests**: Ensure all tests pass with monitoring
+3. **Memory Safety**: Verify no leaks in your changes
+4. **Performance**: Run performance tests to ensure no regressions
+5. **Documentation**: Update docs for new features
+6. **Submit PR**: Create pull request with comprehensive coverage
+
+## 📄 **License**
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## 🙏 Acknowledgments
+
+- The Zig team for creating an amazing language
+- All contributors to this project
+- The AI/ML and systems programming communities
+
+## 📞 Contact
+
+- **Issues**: [GitHub Issues](https://github.com/donaldfilimon/abi/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/donaldfilimon/abi/discussions)
+- **Documentation**: [docs/](docs/)
+
+---
+
+**Built with ❤️ using Zig 0.16**
+
 
 ### Cell Framework Example
 This repository now includes a demonstration of the Cell framework using modern C++23 modules. See `cell_framework/README.md` for build instructions.
+**🚀 Ready to build the future of AI with Zig? Get started with Abi AI Framework today!**
