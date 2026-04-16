@@ -1,173 +1,73 @@
+//! Database CLI command.
+//!
+//! Delegates to the database feature's built-in CLI handler.
+
 const std = @import("std");
-const modern_cli = @import("../../tools/cli/modern_cli.zig");
-const errors = @import("../errors.zig");
-const state_mod = @import("../state.zig");
-const db_helpers = @import("../../features/database/db_helpers.zig");
+const abi = @import("abi");
+const command_mod = @import("../command.zig");
+const context_mod = @import("../framework/context.zig");
+const utils = @import("../utils/mod.zig");
 
-fn requireState(ctx: *modern_cli.Context) errors.CommandError!*state_mod.State {
-    return ctx.userData(state_mod.State) orelse errors.CommandError.RuntimeFailure;
-}
-
-fn parseVectorInput(allocator: std.mem.Allocator, raw: []const u8) errors.CommandError![]f32 {
-    const trimmed = std.mem.trim(u8, raw, " \t\r\n");
-    if (trimmed.len == 0) return errors.CommandError.InvalidArgument;
-
-    const slice = if (trimmed.len >= 2 and trimmed[0] == '[' and trimmed[trimmed.len - 1] == ']')
-        std.mem.trim(u8, trimmed[1 .. trimmed.len - 1], " \t\r\n")
-    else
-        trimmed;
-
-    if (slice.len == 0) return errors.CommandError.InvalidArgument;
-
-    return db_helpers.helpers.parseVector(allocator, slice) catch {
-        return errors.CommandError.InvalidArgument;
-    };
-}
-
-fn insertHandler(ctx: *modern_cli.Context, args: *modern_cli.ParsedArgs) errors.CommandError!void {
-    const state = try requireState(ctx);
-    try state.consumeBudget();
-
-    const vector_raw = args.getString("vec", "");
-    if (vector_raw.len == 0) return errors.CommandError.MissingArgument;
-
-    const vector = try parseVectorInput(state.allocator, vector_raw);
-    defer state.allocator.free(vector);
-
-    const metadata_raw = args.getString("meta", "");
-    const metadata_opt = if (metadata_raw.len > 0) metadata_raw else null;
-
-    const id = state.vector_store.insert(vector, metadata_opt) catch |err| {
-        return switch (err) {
-            state_mod.VectorStoreError.DimensionMismatch => errors.CommandError.InvalidArgument,
-            state_mod.VectorStoreError.InvalidVector => errors.CommandError.InvalidArgument,
-            error.OutOfMemory => errors.CommandError.RuntimeFailure,
-            else => errors.CommandError.RuntimeFailure,
-        };
-    };
-
-    const dimension = state.vector_store.dimension.?;
-    const count = state.vector_store.records.items.len;
-
-    if (args.hasFlag("json")) {
-        std.debug.print("{{\"id\":{d},\"dimension\":{d},\"count\":{d}}}\n", .{ id, dimension, count });
-    } else {
-        std.debug.print(
-            "Inserted vector id={d} (dimension {d}). Total stored: {d}.\n",
-            .{ id, dimension, count },
-        );
-    }
-}
-
-fn searchHandler(ctx: *modern_cli.Context, args: *modern_cli.ParsedArgs) errors.CommandError!void {
-    const state = try requireState(ctx);
-    try state.consumeBudget();
-
-    const vector_raw = args.getString("vec", "");
-    if (vector_raw.len == 0) return errors.CommandError.MissingArgument;
-
-    const query = try parseVectorInput(state.allocator, vector_raw);
-    defer state.allocator.free(query);
-
-    const k_value = args.getInteger("k", 5);
-    if (k_value <= 0) return errors.CommandError.InvalidArgument;
-    const k = @as(usize, @intCast(k_value));
-
-    var results = state.vector_store.search(state.allocator, query, k) catch |err| {
-        return switch (err) {
-            state_mod.VectorStoreError.DimensionMismatch => errors.CommandError.InvalidArgument,
-            state_mod.VectorStoreError.InvalidVector => errors.CommandError.InvalidArgument,
-            error.OutOfMemory => errors.CommandError.RuntimeFailure,
-            else => errors.CommandError.RuntimeFailure,
-        };
-    };
-    defer state.allocator.free(results);
-
-    if (args.hasFlag("json")) {
-        std.debug.print("{{\"count\":{d},\"requested\":{d},\"results\":[", .{ results.len, k });
-        for (results, 0..) |res, idx| {
-            if (idx != 0) std.debug.print(",", .{});
-            if (res.metadata) |meta| {
-                std.debug.print("{{\"id\":{d},\"distance\":{d:.4},\"metadata\":\"{s}\"}}", .{ res.id, res.distance, meta });
-            } else {
-                std.debug.print("{{\"id\":{d},\"distance\":{d:.4}}}", .{ res.id, res.distance });
-            }
-        }
-        std.debug.print("]}}\n", .{});
-    } else {
-        if (results.len == 0) {
-            std.debug.print("No vectors stored yet.\n", .{});
-            return;
-        }
-        std.debug.print("Top {d} matches:\n", .{results.len});
-        for (results, 0..) |res, idx| {
-            std.debug.print(
-                "  {d}) id={d} distance={d:.4}\n",
-                .{ idx + 1, res.id, res.distance },
-            );
-            if (res.metadata) |meta| {
-                std.debug.print("      metadata: {s}\n", .{meta});
-            }
-        }
-    }
-}
-
-pub const insert_command = modern_cli.Command{
-    .name = "insert",
-    .description = "Insert a vector into the in-memory WDBX store",
-    .handler = insertHandler,
-    .options = &.{
-        .{
-            .name = "vec",
-            .long = "vec",
-            .description = "Vector values (e.g. [0.1,0.2,0.3])",
-            .arg_type = .string,
-            .required = true,
-        },
-        .{
-            .name = "meta",
-            .long = "meta",
-            .description = "Optional metadata payload",
-            .arg_type = .string,
-        },
-        .{
-            .name = "json",
-            .long = "json",
-            .description = "Emit JSON payload",
-            .arg_type = .boolean,
-        },
-    },
-};
-
-pub const search_command = modern_cli.Command{
-    .name = "search",
-    .description = "Search nearest neighbours",
-    .handler = searchHandler,
-    .options = &.{
-        .{
-            .name = "vec",
-            .long = "vec",
-            .description = "Query vector",
-            .arg_type = .string,
-            .required = true,
-        },
-        .{
-            .name = "k",
-            .long = "k",
-            .description = "Number of neighbours to return",
-            .arg_type = .integer,
-        },
-        .{
-            .name = "json",
-            .long = "json",
-            .description = "Emit JSON payload",
-            .arg_type = .boolean,
-        },
-    },
-};
-
-pub const command = modern_cli.Command{
+pub const meta: command_mod.Meta = .{
     .name = "db",
-    .description = "Vector database operations",
-    .subcommands = &.{ &insert_command, &search_command },
+    .description = "Database operations (add, query, stats, optimize, backup, restore)",
+    .aliases = &.{"ls"},
+    .subcommands = &.{ "add", "query", "stats", "optimize", "backup", "restore", "serve", "help" },
 };
+
+/// Run the database command with the provided arguments.
+pub fn run(ctx: *const context_mod.CommandContext, args: []const [:0]const u8) !void {
+    const allocator = ctx.allocator;
+    // Handle help at CLI level
+    if (args.len > 0 and utils.args.matchesAny(args[0], &.{ "help", "--help", "-h" })) {
+        printHelp();
+        return;
+    }
+
+    // Check if database feature is enabled
+    if (!abi.features.database.isEnabled()) {
+        utils.output.printError("Database feature is disabled.", .{});
+        utils.output.printInfo("Rebuild with: zig build -Dfeat-database=true (legacy: -Denable-database=true)", .{});
+        return;
+    }
+
+    try abi.features.database.cli.run(allocator, args);
+}
+
+fn printHelp() void {
+    const help_text =
+        \\Usage: abi db <command> [options]
+        \\
+        \\Vector database commands for storing and querying embeddings.
+        \\
+        \\Commands:
+        \\  stats [--db <path>]            Show database statistics
+        \\  add --id <n> --embed <t> [--db <path>] Add embedding with ID
+        \\  query --embed <text> [--db <path>]    Query for similar embeddings
+        \\  optimize [--db <path>]         Optimize database indices
+        \\  backup --db <p> --out <p> Backup database to file
+        \\  restore --db <p> --in <p> Restore database from backup
+        \\  serve [--addr <h:p>]     Start database server
+        \\  help                     Show this help message
+        \\
+        \\Options:
+        \\  --path <path>            Legacy shorthand for both db and backup path
+        \\  --db <path>              Database file path
+        \\  --out <path>             Backup output path
+        \\  --in <path>              Restore input path
+        \\  --top-k <n>              Number of results to return (default: 10)
+        \\
+        \\Examples:
+        \\  abi db stats
+        \\  abi db add --id 1 --embed "Hello world"
+        \\  abi db query --embed "similar text" --top-k 5
+        \\  abi db backup --db state.db --out backup.db
+        \\  abi db restore --db state.db --in backup.db
+        \\
+    ;
+    utils.output.print("{s}", .{help_text});
+}
+
+test {
+    std.testing.refAllDecls(@This());
+}

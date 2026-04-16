@@ -1,48 +1,73 @@
-# ABI Framework - Agent Guidelines
+## Workflow Orchestration
 
-## Project Overview
-High-performance AI framework with vector database, GPU/TPU/NPU acceleration, and neural network training.
+### 1. Plan Node Default
 
-**Zig Version**: `0.16.0-dev` (use `std.debug.print` instead of `std.io.getStdOut`)
+• Enter plan mode for ANY non-trivial task (3+ steps or architectural decisions)
+• If something goes sideways, STOP and re-plan immediately - don't keep pushing
+• Use plan mode for verification steps, not just building
+• Write detailed specs upfront to reduce ambiguity
+• Present plan for approval before implementation on high-stakes changes
 
-## Directory Structure
-```
-lib/           Core library (import as "abi")
-├── core/      Types, errors, memory, I/O
-├── features/  AI, GPU, database, web, monitoring
-├── framework/ Runtime orchestration
-└── shared/    Utils, platform, logging
+### 2. Subagent Strategy
 
-tools/cli/     Command-line interface
-tests/         Test suite
-examples/      basic-usage.zig
-```
+• Use subagents liberally to keep main context window clean
+• Offload research, exploration, and parallel analysis to subagents
+• For complex problems, throw more compute at it via subagents
+• One task per subagent for focused execution
+• Aggregate and synthesize subagent results before proceeding
 
-## Build Commands
-```bash
-zig build              # Build library + CLI
-zig build test         # Run tests
-zig build run          # Run CLI
-```
+### 3. Self-Improvement Loop
 
-## Code Style
-- **Indent**: 4 spaces
-- **Types**: `PascalCase`
-- **Functions/vars**: `snake_case`
-- **Docs**: `//!` module, `///` public API
+• After ANY correction from the user: update `tasks/lessons.md` with the pattern
+• Write rules for yourself that prevent the same mistake
+• Ruthlessly iterate on these lessons until mistake rate drops
+• Review lessons at session start for relevant project
+• Patterns to capture: root causes, not just symptoms
 
-## Zig 0.16 Notes
-- `std.io.getStdOut()` unavailable → use `std.debug.print`
-- Use `vtable.*` not `rawAlloc/rawResize/rawFree` for custom allocators
-- Async I/O coming in stable 0.16
+### 4. Verification Before Done
 
-## Key Modules
-| Module | Purpose |
-|--------|---------|
-| `abi.gpu.accelerator` | Unified GPU/TPU/NPU/CPU |
-| `abi.database` | Vector database |
-| `abi.ai` | Neural networks |
-| `abi.features` | Feature toggles |
+• Never mark a task complete without proving it works
+• Diff behavior between main and your changes when relevant
+• Ask yourself: "Would a staff engineer approve this?"
+• Run tests, check logs, demonstrate correctness
+• For UI changes: verify visually; for API changes: test the endpoint
 
-## Feature Flags
-`zig build -Denable-gpu=true -Denable-ai=true`
+### 5. Demand Elegance (Balanced)
+
+• For non-trivial changes: pause and ask "is there a more elegant way?"
+• If a fix feels hacky: "Knowing everything I know now, implement the elegant solution"
+• Skip this for simple, obvious fixes - don't over-engineer
+• Challenge your own work before presenting it
+• Simplicity is the ultimate sophistication
+
+### 6. Autonomous Bug Fixing
+
+• When given a bug report: just fix it. Don't ask for hand-holding
+• Point at logs, errors, failing tests - then resolve them
+• Zero context switching required from the user
+• Go fix failing CI tests without being told how
+• Investigate root cause; fix the disease, not the symptom
+
+---
+
+## Task Management
+
+1. **Plan First**: Write plan to `tasks/todo.md` with checkable items
+2. **Verify Plan**: Check in before starting implementation
+3. **Track Progress**: Mark items complete as you go
+4. **Explain Changes**: High-level summary at each step
+5. **Document Results**: Add review section to `tasks/todo.md`
+6. **Capture Lessons**: Update `tasks/lessons.md` after corrections
+
+---
+
+## Core Principles
+
+| Principle | Description |
+|-----------|-------------|
+| **Simplicity First** | Make every change as simple as possible. Minimal code impact. |
+| **No Laziness** | Find root causes. No temporary fixes. Senior developer standards. |
+| **Minimal Impact** | Changes should only touch what's necessary. Avoid introducing bugs. |
+| **Review Lessons** | Review `lessons.md` at session start for the relevant project. |
+
+> **Note**: AI responses may include mistakes. Always verify critical changes.

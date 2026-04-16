@@ -1,33 +1,70 @@
-name: ci
+name: CI
 
 on:
   push:
-    branches: [ main ]
+    branches: [main, master]
   pull_request:
+    branches: [main, master]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  build-test:
-    runs-on: ubuntu-latest
+  lint:
+    name: Format Check
+    runs-on: macos-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Zig
-        uses: goto-bus-stop/setup-zig@v2
+      - uses: actions/checkout@v4
+      - uses: mlugg/setup-zig@v1
         with:
-          zig-version: master
+          version: master
+      - run: zig build lint
 
-      - name: Show Zig version
-        run: zig version
+  test:
+    name: Test Suite
+    runs-on: macos-latest
+    needs: lint
+    steps:
+      - uses: actions/checkout@v4
+      - uses: mlugg/setup-zig@v1
+        with:
+          version: master
+      - name: Main tests
+        run: zig build test --summary all
+      - name: Feature tests
+        run: zig build feature-tests --summary all
 
-      - name: Format check
-        run: zig fmt --check .
+  quality-gates:
+    name: Quality Gates
+    runs-on: macos-latest
+    needs: test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: mlugg/setup-zig@v1
+        with:
+          version: master
+      - name: Full check
+        run: zig build full-check
+      - name: Validate baselines
+        run: zig build validate-baseline
+      - name: Validate feature flags
+        run: zig build validate-flags
+      - name: Workflow orchestration check (non-blocking)
+        if: ${{ always() }}
+        continue-on-error: true
+        run: zig build check-workflow-orchestration
+      - name: CLI smoke tests
+        run: zig build cli-tests
 
-      - name: Build
-        run: zig build
-
-      - name: Run tests
-        run: zig build test
-
-      - name: Run check aggregate
-        run: zig build check
+  examples:
+    name: Examples
+    runs-on: macos-latest
+    needs: lint
+    steps:
+      - uses: actions/checkout@v4
+      - uses: mlugg/setup-zig@v1
+        with:
+          version: master
+      - name: Build all examples
+        run: zig build examples

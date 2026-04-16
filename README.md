@@ -13,22 +13,10 @@ defer agent.deinit();
 [![Tests](https://img.shields.io/badge/Tests-Passing-brightgreen.svg)]()
 [![Performance](https://img.shields.io/badge/Performance-2,777+%20ops%2Fsec-brightgreen.svg)]()
 
-### Vector Database
+</details>
 
-```zig
-const db = abi.database;
-
-var vector_db = try db.VectorDB.init(allocator, .{
-    .dimension = 128,
-    .metric = .cosine,
-});
-defer vector_db.deinit();
-
-try vector_db.insert("doc1", embedding);
-const results = try vector_db.search(query, 10);
-```
-
-### GPU Compute
+<details>
+<summary><b>Vector Database</b></summary>
 
 ```zig
 const gpu = abi.gpu;
@@ -45,342 +33,333 @@ defer backend.deinit();
 
 We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details.
 
-### Development Setup
+pub fn main() !void {
+    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    const allocator = gpa.allocator();
+    defer _ = gpa.deinit();
 
-```bash
-# Clone the repository
-git clone https://github.com/donaldfilimon/abi.git
-cd abi
+    // Create a 384-dimensional vector database
+    var db = try abi.wdbx.createDatabase(allocator, .{ .dimension = 384 });
+    defer db.deinit();
 
-# Run tests
-zig build test-all
+    // Insert vectors
+    try db.insertVector(1, &embedding1);
+    try db.insertVector(2, &embedding2);
 
-# Format code
-zig fmt .
+    // Search for similar vectors
+    const results = try db.searchVectors(&query_embedding, 10);
+    defer allocator.free(results);
 
-# Build all examples
-zig build examples
+    for (results) |result| {
+        std.debug.print("ID: {d}, Score: {d:.4}\n", .{ result.id, result.score });
+    }
+}
 ```
 
-### Code Guidelines
+</details>
 
-- Follow Zig 0.16 best practices
-- Add tests for new features
-- Update documentation
-- Use the provided error handling infrastructure
-- Inject dependencies (especially I/O)
+<details>
+<summary><b>GPU-Accelerated Compute</b></summary>
 
-## 🗺️ Roadmap
+```zig
+const abi = @import("abi");
 
-### Current (v0.2.0)
+pub fn main() !void {
+    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    const allocator = gpa.allocator();
+    defer _ = gpa.deinit();
 
-- [x] Modular build system
-- [x] I/O abstraction layer
-- [x] Comprehensive error handling
-- [x] Improved testing infrastructure
+    // Auto-selects best available backend (CUDA > Vulkan > Metal > CPU)
+    var gpu = try abi.Gpu.init(allocator, .{
+        .enable_profiling = true,
+        .memory_mode = .automatic,
+    });
+    defer gpu.deinit();
 
-### Next (v0.3.0)
-
-- [ ] Complete GPU backend implementations
-- [ ] Advanced monitoring and tracing
-- [ ] Plugin system v2
-- [ ] Performance optimizations
-
-### Future
-
-- [ ] Distributed computing support
-- [ ] Advanced ML model formats
-- [ ] Production deployment guides
-- [ ] Cloud provider integrations
+    const a = try gpu.createBufferFromSlice(f32, &[_]f32{ 1, 2, 3, 4 }, .{});
+    const b = try gpu.createBufferFromSlice(f32, &[_]f32{ 4, 3, 2, 1 }, .{});
+    const result = try gpu.createBuffer(4 * @sizeOf(f32), .{});
+    defer { gpu.destroyBuffer(a); gpu.destroyBuffer(b); gpu.destroyBuffer(result); }
 
 // Add embeddings
 const embedding = [_]f32{0.1, 0.2, 0.3, /* ... */};
 const row_id = try db.addEmbedding(&embedding);
 
-// Search for similar vectors
-const query = [_]f32{0.15, 0.25, 0.35, /* ... */};
-const matches = try db.search(&query, 10, allocator);
-defer abi.features.database.database.Db.freeResults(matches, allocator);
-```
-
-> **Note:** Always release search metadata with `Db.freeResults` when you're done to reclaim allocator-backed resources.
-
-### **WDBX Vector Database Features**
-
-The ABI vector database provides enterprise-grade performance with:
-
-- **High Performance**: SIMD-optimized vector operations and efficient file I/O
-- **Vector Operations**: Add, query, and k-nearest neighbor search
-- **Multiple APIs**: Command-line interface, HTTP REST API, TCP binary protocol, WebSocket
-- **Security**: JWT authentication and rate limiting
-- **Monitoring**: Comprehensive statistics and performance metrics
-- **Production Ready**: Error handling, graceful degradation, and comprehensive testing
-
-#### **Command Line Usage**
-
-```bash
-# Query k-nearest neighbors
-./zig-out/bin/abi wdbx knn "1.1,2.1,3.1,4.1,5.1,6.1,7.1,8.1" 5
-
-# Query nearest neighbor
-./zig-out/bin/abi wdbx query "1.1,2.1,3.1,4.1,5.1,6.1,7.1,8.1"
-
-# Add vector to database
-./zig-out/bin/abi wdbx add "1.0,2.0,3.0,4.0,5.0,6.0,7.0,8.0"
-
-# Start HTTP REST API server
-./zig-out/bin/abi wdbx http 8080
-```
-
-#### **HTTP REST API**
-
-Start the server and access endpoints:
-
-```bash
-./zig-out/bin/abi wdbx http 8080
-```
-
-**API Endpoints:**
-- `GET /health` - Health check
-- `GET /stats` - Database statistics
-- `POST /add` - Add vector (requires admin token)
-- `GET /query?vec=1.0,2.0,3.0` - Query nearest neighbor
-- `GET /knn?vec=1.0,2.0,3.0&k=5` - Query k-nearest neighbors
-
-## 📊 **Performance Benchmarks**
-
-| Component | Performance | Hardware |
-|-----------|-------------|----------|
-| **Text Processing** | 3.2 GB/s | SIMD-accelerated with alignment safety |
-| **Vector Operations** | 15 GFLOPS | SIMD dot product with memory tracking |
-| **Neural Networks** | <1ms inference | 32x32 network with memory safety |
-| **LSP Completions** | <10ms response | Sub-10ms completion responses |
-| **GPU Rendering** | 500+ FPS | Terminal UI with GPU acceleration |
-| **Lock-free Queue** | 10M ops/sec | Single producer, minimal contention |
-| **WDBX Database** | 2,777+ ops/sec | Production-validated performance |
-
-## 🛠️ **Command Line Interface**
-
-```bash
-# AI Chat (Interactive)
-abi chat --persona creative --backend openai --interactive
-
-# AI Chat (Single Message)
-abi chat "Hello, how can you help me?" --persona analytical
-
-# Model Training
-abi llm train --data training_data.csv --output model.bin --epochs 100 --lr 0.001
-
-# Model Training with GPU
-abi llm train --data data.csv --gpu --threads 8 --batch-size 64
-
-# Vector Database Operations
-abi llm embed --db vectors.wdbx --text "Sample text for embedding"
-abi llm query --db vectors.wdbx --text "Query text" --k 5
-
-# Web Server
-abi web --port 8080
-
-# Performance Benchmarking
-abi benchmark --iterations 1000 --memory-track
-
-# Memory Profiling
-abi --memory-profile benchmark
-```
-
-## ⚙️ **Build Options**
-
-Configure features and targets via command-line flags:
-
-### **GPU & Acceleration**
-- `-Denable_cuda=true|false` (default: true) - Enable NVIDIA CUDA support
-- `-Denable_spirv=true|false` (default: true) - Enable Vulkan/SPIRV compilation
-- `-Denable_wasm=true|false` (default: true) - Enable WebAssembly compilation
-
-### **Optimization & Targets**
-- `-Dtarget=<triple>` - Cross-compilation target (e.g., `x86_64-linux-gnu`, `aarch64-macos`)
-- `-Doptimize=Debug|ReleaseSafe|ReleaseFast|ReleaseSmall` (default: Debug)
-
-### **Development Features**
-- `-Denable_cross_compilation=true|false` (default: true) - Enable cross-compilation support
-- `-Denable_heavy_tests=true|false` (default: false) - Run heavy database/HNSW tests
-
-### **Examples**
-
-```bash
-# Production build with CUDA acceleration
-zig build -Dtarget=x86_64-linux-gnu -Doptimize=ReleaseFast -Denable_cuda=true
-
-# Cross-compile for ARM64 macOS
-zig build -Dtarget=aarch64-macos -Doptimize=ReleaseSmall
-
-# Run with all tests including heavy ones
-zig build test-all -Denable_heavy_tests=true
-
-# Minimal build without GPU support
-zig build -Denable_cuda=false -Denable_spirv=false
-```
-
-### **Runtime Configuration**
-
-Build options are available at compile-time via the `options` module:
-
-```zig
-const options = @import("options");
-
-pub fn main() void {
-    std.log.info("CUDA: {}, SPIRV: {}", .{ options.enable_cuda, options.enable_spirv });
-    std.log.info("Target: {}", .{ options.target });
+    var output: [4]f32 = undefined;
+    try result.read(f32, &output);
+    // output = { 5, 5, 5, 5 }
 }
 ```
 
-## 🏗️ **Architecture Overview**
+</details>
+
+<details>
+<summary><b>Training Pipeline</b></summary>
+
+```zig
+const abi = @import("abi");
+
+pub fn main() !void {
+    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    const allocator = gpa.allocator();
+    defer _ = gpa.deinit();
+
+    const config = abi.features.ai.TrainingConfig{
+        .epochs = 10,
+        .batch_size = 32,
+        .learning_rate = 0.001,
+        .optimizer = .adamw,
+    };
+
+    var result = try abi.features.ai.trainWithResult(allocator, config);
+    defer result.deinit();
+
+    std.debug.print("Final loss: {d:.6}\n", .{result.report.final_loss});
+}
+```
+
+</details>
+
+---
+
+## CLI Reference
+
+### Adding CLI/TUI tools via the comptime DSL
+
+- Define command metadata in the command module using `pub const meta: command.Meta`.
+- Keep registry ordering/metadata overrides in `/Users/donaldfilimon/abi/tools/cli/registry/overrides.zig`.
+- Refresh the generated registry snapshot with `zig build refresh-cli-registry` after adding commands.
+- Use command metadata fields for options/UI/risk so launcher/completion/help are derived from one source.
+- For simple UI dashboards, use `/Users/donaldfilimon/abi/tools/cli/ui/dsl/mod.zig` to avoid repeated theme/session/dashboard boilerplate.
+- Refresh/check registry snapshots with:
+`zig build refresh-cli-registry`
+`zig build check-cli-registry`
+
+```bash
+# Core Commands
+abi --help                    # Show all commands
+abi system-info               # System and feature status
+abi ui launch                 # Interactive TUI launcher
+
+# Database Operations
+abi db stats                  # Database statistics
+abi db add --id 1 --embed "text"
+abi db search --embed "query" --top 5
+abi db backup --path backup.db
+
+# AI & Agents
+abi agent                     # Interactive chat
+abi agent --persona coder     # Use specific persona
+abi agent -m "Hello"          # One-shot message
+abi llm chat model.gguf       # Chat with local model
+
+# GPU Management
+abi gpu backends              # List available backends
+abi gpu devices               # Enumerate all GPUs
+abi gpu summary               # Quick status
+
+# Training
+abi train run --epochs 10     # Start training
+abi train resume ./checkpoint # Resume from checkpoint
+abi train monitor             # Real-time metrics
+
+# Runtime Feature Flags
+abi --list-features           # Show feature status
+abi --enable-gpu db stats     # Enable feature for command
+abi --disable-ai system-info  # Disable feature for command
+```
+
+---
+
+## Performance
+
+<div align="center">
+
+| Benchmark | Operations/sec |
+|:----------|---------------:|
+| SIMD Vector Dot Product | **84,875,233** |
+| SIMD Vector Addition | **84,709,869** |
+| Configuration Loading | **66,476,102** |
+| Memory Allocation (1KB) | **464,712** |
+| Logging Operations | **331,960** |
+| Compute Engine Task | **93,368** |
+| Network Registry Ops | **84,831** |
+| JSON Parse/Serialize | **83,371** |
+| Database Vector Insert | **68,444** |
+| Database Vector Search | **56,563** |
+
+<sub>ReleaseFast build on typical development workstation. Run `zig build benchmarks` to test your system.</sub>
+
+</div>
+
+---
+
+## Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────────────┐
-│                    Abi AI Framework                               │
-├─────────────────────────────────────────────────────────────────────┤
-│  🤖 AI Agents    🧠 Neural Nets    🗄️ Vector Database               │
-├─────────────────────────────────────────────────────────────────────┤
-│  🚀 SIMD Ops     🔒 Lock-free      🌐 Network Servers              │
-├─────────────────────────────────────────────────────────────────────┤
-│  📊 Monitoring   🔍 Profiling      🧪 Testing Suite                 │
-├─────────────────────────────────────────────────────────────────────┤
-│  🔌 Plugin Sys   📱 CLI Interface  🌍 Platform Ops                 │
-└─────────────────────────────────────────────────────────────────────┘
+abi/
+├── src/
+│   ├── abi.zig           # Public API entry point
+│   ├── config/           # Unified configuration
+│   ├── framework.zig     # Lifecycle orchestration
+│   ├── platform/         # Platform detection (OS, arch, CPU)
+│   │
+│   ├── ai/               # AI Module
+│   │   ├── llm/          # Local LLM inference (Llama-CPP parity)
+│   │   ├── agents/       # Agent runtime with personas
+│   │   ├── training/     # Training pipelines
+│   │   └── embeddings/   # Vector embeddings
+│   │
+│   ├── gpu/              # GPU Acceleration
+│   │   ├── backends/     # CUDA, Vulkan, Metal, WebGPU, FPGA
+│   │   ├── kernels/      # Compute kernels
+│   │   └── dsl/          # Shader DSL & codegen
+│   │
+│   ├── database/         # Vector Database (WDBX)
+│   │   ├── hnsw.zig      # HNSW indexing
+│   │   └── distributed/  # Sharding & replication
+│   │
+│   ├── runtime/          # Compute Infrastructure
+│   │   ├── engine/       # Work-stealing scheduler
+│   │   ├── concurrency/  # Lock-free primitives
+│   │   └── memory/       # Pool allocators
+│   │
+│   ├── network/          # Distributed Compute
+│   │   └── raft/         # Consensus protocol
+│   │
+│   ├── shared/           # Shared utilities (security, io, utils)
+│   │
+│   └── observability/    # Metrics & Tracing
+│
+├── tools/cli/            # CLI implementation
+├── examples/             # Usage examples
+└── docs/                 # Documentation
 ```
 
-## 📚 **Further Reading**
+<details>
+<summary><b>System Architecture Diagram</b></summary>
 
-- **[Documentation Portal](docs/README.md)** - Landing page that links to generated and manual guides
-- **[Module Organization](docs/MODULE_ORGANIZATION.md)** - Current source tree and dependency overview
-- **[GPU Acceleration Guide](docs/GPU_AI_ACCELERATION.md)** - Feature deep dive for GPU-backed workloads
-- **[Testing Strategy](docs/TESTING_STRATEGY.md)** - Quality gates, coverage expectations, and tooling
-- **[Production Deployment](docs/PRODUCTION_DEPLOYMENT.md)** - Deployment runbooks and environment guidance
-- **[API Reference](docs/api_reference.md)** - Hand-authored API summary with links to generated docs
-- **[Generated Documentation](docs/generated/)** - Auto-generated API, module, and example references
+```mermaid
+flowchart TB
+    subgraph "Public API"
+        ABI[abi.zig]
+    end
 
-## 🧪 **Testing & Quality**
+    subgraph "Framework Layer"
+        FW[Framework Orchestration]
+        CFG[Configuration]
+        REG[Feature Registry]
+    end
 
-### Quick commands
-- Build: `zig build`
-- Test: `zig build test`
-- Bench: `zig build bench-all`
-- Docs: `zig build docs`
-- Static analysis: `zig build analyze`
-- Cross-platform: `zig build cross-platform`
+    subgraph "Feature Modules"
+        AI[AI Runtime]
+        GPU[GPU Acceleration]
+        DB[Vector Database]
+        NET[Distributed Network]
+        OBS[Observability]
+    end
 
-### **Comprehensive Test Suite**
+    subgraph "Infrastructure"
+        RT[Runtime Engine]
+        MEM[Memory Management]
+        CONC[Concurrency]
+    end
+
+    ABI --> FW
+    FW --> CFG
+    FW --> REG
+    FW --> AI
+    FW --> GPU
+    FW --> DB
+    FW --> NET
+    FW --> OBS
+    AI --> RT
+    GPU --> RT
+    DB --> RT
+    RT --> MEM
+    RT --> CONC
+```
+
+</details>
+
+---
+
+## Feature Flags
+
+All features are enabled by default. Disable unused features to reduce binary size.
+
+| Flag | Default | Description |
+|:-----|:-------:|:------------|
+| `-Denable-ai` | true | AI features, agents, and connectors |
+| `-Denable-llm` | true | Local LLM inference |
+| `-Denable-gpu` | true | GPU acceleration |
+| `-Denable-database` | true | Vector database (WDBX) |
+| `-Denable-network` | true | Distributed compute |
+| `-Denable-web` | true | HTTP client utilities |
+| `-Denable-profiling` | true | Performance profiling |
+
+### GPU Backend Selection
+
+```bash
+# Single backend
+zig build -Dgpu-backend=vulkan
+zig build -Dgpu-backend=cuda
+zig build -Dgpu-backend=metal
+
+# Multiple backends (comma-separated)
+zig build -Dgpu-backend=cuda,vulkan
+
+# Auto-detect best available
+zig build -Dgpu-backend=auto
+```
+
+---
+
+## C Bindings (Reintroduction Planned)
+
+C bindings were removed during the 2026-01-30 cleanup and are being
+reintroduced as part of the language bindings roadmap. Track progress in
+[ROADMAP.md](ROADMAP.md) under **Language bindings**.
+
+---
+
+## Documentation
+
+| Resource | Description |
+|:---------|:------------|
+| [Online Docs](https://donaldfilimon.github.io/abi/) | Published documentation site |
+| [Docs Source](docs/README.md) | Docs build and layout |
+| [API Overview](docs/content/api.html) | High-level API reference |
+| [Getting Started](docs/content/getting-started.html) | First steps and setup |
+| [Configuration](docs/content/configuration.html) | Config system overview |
+| [Architecture](docs/content/architecture.html) | System structure |
+| [AI Guide](docs/content/ai.html) | LLM, agents, training |
+| [GPU Guide](docs/content/gpu.html) | Multi-backend GPU acceleration |
+| [Database Guide](docs/content/database.html) | WDBX vector database |
+| [Network Guide](docs/content/network.html) | Distributed compute |
+| [Deployment Guide](docs/content/deployment.html) | Production deployment |
+| [Observability Guide](docs/content/observability.html) | Metrics and profiling |
+| [Security Guide](docs/content/security.html) | Security model |
+| [Examples Guide](docs/content/examples.html) | Example walkthroughs |
+| [API Reference](API_REFERENCE.md) | Public API summary |
+| [Quickstart](QUICKSTART.md) | Getting started guide |
+| [Developer Guide](CLAUDE.md) | Zig 0.16 patterns and conventions |
 
 ```bash
 # Run all tests
-zig build test
+zig build test --summary all
 
-# Memory management tests
-zig test tests/test_memory_management.zig
+# Test specific module
+zig test src/runtime/engine/engine.zig
 
-# Performance regression tests
-zig test tests/test_performance_regression.zig
+# Filter tests by pattern
+zig test src/tests/mod.zig --test-filter "pattern"
 
-# CLI integration tests
-zig test tests/test_cli_integration.zig
-```
+# Run benchmarks
+zig build benchmarks
 
-### **Quality Metrics**
-- **Memory Safety**: Zero memory leaks with comprehensive tracking
-- **Performance Stability**: <5% performance regression tolerance
-- **Test Coverage**: 95%+ code coverage with memory and performance tests
-- **Build Success Rate**: 99%+ successful builds across all platforms
-
-### **Test Categories**
-- **Memory Management**: Memory safety and leak detection (100% coverage)
-- **Performance Regression**: Performance stability monitoring (95% coverage)
-- **CLI Integration**: Command-line interface validation (90% coverage)
-- **Database Operations**: Vector database functionality (95% coverage)
-- **SIMD Operations**: SIMD acceleration validation (90% coverage)
-- **Network Infrastructure**: Server stability and error handling (95% coverage)
-
-## 🌐 **Web API**
-
-Start the web server and access REST endpoints:
-
-```bash
-abi web --port 8080
-```
-
-**Available Endpoints:**
-- `GET /health` - Health check
-- `GET /api/status` - System status
-- `POST /api/agent/query` - Query AI agent (JSON: `{"message": "your question"}`)
-- `POST /api/database/search` - Search vectors
-- `GET /api/database/info` - Database information
-- `WebSocket /ws` - Real-time chat with AI agent
-
-## 🔌 **Plugin Development**
-
-Create custom plugins for the framework:
-
-```zig
-// Example plugin
-pub const ExamplePlugin = struct {
-    pub const name = "example_plugin";
-    pub const version = "1.0.0";
-
-    pub fn init(allocator: std.mem.Allocator) !*@This() {
-        // Plugin initialization
-    }
-
-    pub fn deinit(self: *@This()) void {
-        // Plugin cleanup
-    }
-};
-```
-
-See the [Module Organization guide](docs/MODULE_ORGANIZATION.md) and generated module reference for plugin entry points.
-
-## 🚀 **Production Deployment**
-
-The framework includes production-ready deployment configurations:
-- **Kubernetes Manifests**: Complete staging and production deployments
-- **Monitoring Stack**: Prometheus + Grafana with validated thresholds
-- **Performance Validation**: 2,777+ ops/sec with 99.98% uptime
-- **Automated Scripts**: Windows (PowerShell) and Linux deployment scripts
-
-See [Production Deployment Guide](docs/PRODUCTION_DEPLOYMENT.md) for complete deployment instructions.
-
-## 🌍 **Cross-Platform Guide (Zig 0.16.0-dev.1225+bf9082518)**
-
-### **Targets**
-
-```bash
-# Examples
-zig build -Dtarget=x86_64-linux-gnu
-zig build -Dtarget=aarch64-linux-gnu
-zig build -Dtarget=x86_64-macos
-zig build -Dtarget=aarch64-macos
-zig build -Dtarget=wasm32-wasi
-```
-
-### **Conditional Compilation**
-
-```zig
-const builtin = @import("builtin");
-
-pub fn main() void {
-    if (comptime builtin.os.tag == .windows) {
-        // Windows-specific code
-    } else if (comptime builtin.os.tag == .linux) {
-        // Linux-specific code
-    } else if (comptime builtin.os.tag == .macos) {
-        // macOS-specific code
-    }
-}
-```
-
-### **Cross-Platform Build Step**
-
-```bash
-zig build cross-platform   # builds CLI for multiple targets into zig-out/cross/
+# Lint check
+zig build lint
 ```
 
 ### **Windows Networking Notes**
