@@ -1,15 +1,44 @@
-//! zvim: Ultra-high-performance CLI with GPU acceleration, lock-free concurrency,
-//! and platform-optimized implementations for Zig, Swift, and C++ development.
+//! Main CLI entrypoint for ABI Framework
+//!
+//! Provides command-line interface to access framework functionality.
 
 const std = @import("std");
-const builtin = @import("builtin");
-const build_options = @import("build_options");
+// Import the ABI module directly when building this file without a custom build script.
+// Using the file name ensures the import works even when the project build does not
+// provide a named module.
+const abi = @import("abi.zig");
+// Shared I/O backend helper (Zig 0.16)
+// Note: This intentionally references ABI's shared module so `zig run src/main.zig`
+// works without requiring the build system to define an "io" package/module.
+const IoBackend = abi.services.shared.io.IoBackend;
 
-const perf = @import("performance.zig");
-const gpu = @import("../zvim/gpu_renderer.zig");
-const simd = @import("../zvim/simd_text.zig");
-const lockfree = @import("lockfree.zig");
-const platform = @import("platform.zig");
+pub fn main(init: std.process.Init) !void {
+    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    defer _ = gpa.deinit();
+    const allocator = gpa.allocator();
+
+    const args = try init.minimal.args.toSlice(init.arena.allocator());
+
+    // Skip program name
+    const command = if (args.len > 1) args[1] else {
+        printHelp();
+        return;
+    };
+
+    if (std.mem.eql(u8, command, "help") or std.mem.eql(u8, command, "--help") or std.mem.eql(u8, command, "-h")) {
+        printHelp();
+        return;
+    }
+
+    if (std.mem.eql(u8, command, "version") or std.mem.eql(u8, command, "--version") or std.mem.eql(u8, command, "-v")) {
+        std.debug.print("ABI Framework v{s}\n", .{abi.version()});
+        return;
+    }
+
+    if (std.mem.eql(u8, command, "info") or std.mem.eql(u8, command, "system-info")) {
+        try printFrameworkInfo(allocator);
+        return;
+    }
 
 pub const Error = error{
     EmptyText,
@@ -50,72 +79,37 @@ pub const Abbey = struct {
         return checkCompliance(text) catch return false;
     }
 
-    pub fn checkCompliance(text: []const u8) Error!bool {
-        if (text.len == 0) return Error.EmptyText;
-        if (text.len > MAX_TEXT_LENGTH) return Error.TextTooLong;
+    std.debug.print("Framework initialized successfully\n", .{});
 
-        // Check for blacklisted words
-        for (BLACKLISTED_WORDS) |word| {
-            if (std.mem.indexOf(u8, text, word) != null) {
-                return Error.BlacklistedWord;
-            }
-        }
-        return true;
-    }
-};
-
-/// Aviva persona: performs computation on provided values
-pub const Aviva = struct {
-    pub fn computeSum(values: []const usize) Error!usize {
-        if (values.len == 0) return Error.InvalidValues;
-        var sum: usize = 0;
-        for (values) |v| {
-            sum = std.math.add(usize, sum, v) catch return Error.ProcessingFailed;
-        }
-        return sum;
-    }
-};
-
-/// Abi persona: orchestrates Abbey and Aviva
-pub const Abi = struct {
-    pub fn process(req: Request) Error!Response {
-        try req.validate();
-        const sum = try Aviva.computeSum(req.values);
-        return Response{
-            .result = sum,
-            .message = "Computation successful",
-        };
-    }
-};
-
-pub fn main() !void {
-    var args = std.process.args();
-    _ = args.next(); // exe name
-    if (args.next()) |arg| {
-        if (std.mem.eql(u8, arg, "tui")) {
-            const tui = @import("tui.zig");
-            try tui.run();
-            return;
-        }
+    if (abi.features.database.isEnabled()) {
+        std.debug.print("Database: Available\n", .{});
+    } else {
+        std.debug.print("Database: Not available (enable with -Denable-database=true)\n", .{});
     }
 
-    const req = Request{
-        .text = "example input",
-        .values = &[_]usize{ 1, 2, 3, 4 },
-    };
-    const res = Abi.process(req);
-    const stdout = std.io.getStdOut().writer();
-    try stdout.print("{s}: {d}\n", .{ res.message, res.result });
-}
+    if (abi.features.gpu.moduleEnabled()) {
+        std.debug.print("GPU: Available\n", .{});
+    } else {
+        std.debug.print("GPU: Not available (enable with -Denable-gpu=true)\n", .{});
+    }
 
-test "Abbey compliance" {
-    try std.testing.expect(Abbey.isCompliant("good"));
-    try std.testing.expect(!Abbey.isCompliant("bad"));
-}
+    if (abi.features.ai.isEnabled()) {
+        std.debug.print("AI: Available\n", .{});
+    } else {
+        std.debug.print("AI: Not available (enable with -Denable-ai=true)\n", .{});
+    }
 
-test "Aviva computeSum" {
-    const vals = [_]usize{ 1, 2, 3 };
-    try std.testing.expectEqual(@as(usize, 6), Aviva.computeSum(&vals));
+    if (abi.features.web.isEnabled()) {
+        std.debug.print("Web: Available\n", .{});
+    } else {
+        std.debug.print("Web: Not available (enable with -Denable-web=true)\n", .{});
+    }
+
+    if (abi.features.network.isEnabled()) {
+        std.debug.print("Network: Available\n", .{});
+    } else {
+        std.debug.print("Network: Not available (enable with -Denable-network=true)\n", .{});
+    }
 }
 
 test "Abi orchestrates personas" {
