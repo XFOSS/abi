@@ -40,59 +40,44 @@ pub fn main(init: std.process.Init) !void {
         return;
     }
 
-    std.debug.print("Unknown command: {s}\n", .{command});
-    printHelp();
-}
+pub const Error = error{
+    EmptyText,
+    BlacklistedWord,
+    TextTooLong,
+    InvalidValues,
+    ProcessingFailed,
+};
 
-fn printHelp() void {
-    const help_text =
-        \\ABI Framework CLI
-        \\
-        \\Usage:
-        \\  abi <command> [options]
-        \\
-        \\Commands:
-        \\  help, --help, -h     Show this help message
-        \\  version, --version  Show framework version
-        \\  info, system-info   Show framework information and available features
-        \\
-        \\For the full CLI (including tui), build the tools/cli entrypoint.
-        \\For more advanced usage, see the examples/ directory.
-    ;
-    std.debug.print("{s}\n", .{help_text});
-}
+pub const Request = struct {
+    text: []const u8,
+    values: []const usize,
 
-fn printFrameworkInfo(allocator: std.mem.Allocator) !void {
-    std.debug.print("=== ABI Framework Information ===\n", .{});
-    std.debug.print("Version: {s}\n", .{abi.version()});
-    std.debug.print("SIMD Support: {s}\n", .{if (abi.hasSimdSupport()) "Yes" else "No"});
+    pub fn validate(self: Request) Error!void {
+        if (self.text.len == 0) return Error.EmptyText;
+        if (self.values.len == 0) return Error.InvalidValues;
+        _ = try Abbey.checkCompliance(self.text);
+    }
+};
 
-    // Initialise the shared I/O backend (Zig 0.16)
-    var io_backend = try IoBackend.init(allocator);
-    defer io_backend.deinit();
+pub const Response = struct {
+    result: usize,
+    message: []const u8,
+};
 
-    // Build a fully‑featured framework using the builder pattern.
-    var builder = abi.App.builder(allocator);
-    _ = builder.withDefault(.gpu);
-    _ = builder.withDefault(.ai);
-    _ = builder.withDefault(.database);
-    _ = builder.withDefault(.web);
-    _ = builder.withDefault(.network);
-    _ = builder.withDefault(.observability);
-    _ = builder.withIo(io_backend.io);
-    var framework = builder.build() catch |err| {
-        std.debug.print("Framework initialization failed: {t}\n", .{err});
-        std.debug.print("Running with minimal features...\n", .{});
+pub const ComplianceError = error{
+    EmptyText,
+    BlacklistedWord,
+    TextTooLong,
+};
 
-        // Minimal framework – builder without any feature defaults.
-        var minimal_builder = abi.App.builder(allocator);
-        var minimal_framework = try minimal_builder.build();
-        defer abi.shutdown(&minimal_framework);
+/// Abbey persona: ensures simple ethical compliance
+pub const Abbey = struct {
+    const MAX_TEXT_LENGTH = 1000;
+    const BLACKLISTED_WORDS = [_][]const u8{ "bad", "evil", "hate" };
 
-        std.debug.print("Minimal framework initialized successfully\n", .{});
-        return;
-    };
-    defer abi.shutdown(&framework);
+    pub fn isCompliant(text: []const u8) bool {
+        return checkCompliance(text) catch return false;
+    }
 
     std.debug.print("Framework initialized successfully\n", .{});
 
@@ -125,4 +110,11 @@ fn printFrameworkInfo(allocator: std.mem.Allocator) !void {
     } else {
         std.debug.print("Network: Not available (enable with -Denable-network=true)\n", .{});
     }
+}
+
+test "Abi orchestrates personas" {
+    const req = Request{ .text = "ok", .values = &[_]usize{ 1, 2 } };
+    const res = try Abi.process(req);
+    try std.testing.expectEqual(@as(usize, 3), res.result);
+    try std.testing.expectEqualStrings("Computation successful", res.message);
 }
