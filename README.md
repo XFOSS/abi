@@ -484,62 +484,6 @@ zig build benchmarks
 zig build lint
 ```
 
----
 
-## Environment Variables
-
-| Variable | Description |
-|:---------|:------------|
-| `ABI_OPENAI_API_KEY` | OpenAI API key |
-| `ABI_ANTHROPIC_API_KEY` | Anthropic/Claude API key |
-| `ABI_OLLAMA_HOST` | Ollama host (default: `http://127.0.0.1:11434`) |
-| `ABI_OLLAMA_MODEL` | Default Ollama model |
-| `ABI_HF_API_TOKEN` | HuggingFace API token |
-| `DISCORD_BOT_TOKEN` | Discord bot token |
-
----
-
-## Project Status
-
-| Milestone | Status |
-|:----------|:------:|
-| Zig 0.16 Migration | ![Complete](https://img.shields.io/badge/-Complete-success) |
-| Llama-CPP Parity | ![Complete](https://img.shields.io/badge/-Complete-success) |
-| C Library Bindings | ![Complete](https://img.shields.io/badge/-Complete-success) |
-| Plugin Registry | ![Complete](https://img.shields.io/badge/-Complete-success) |
-| Runtime Consolidation | ![Complete](https://img.shields.io/badge/-Complete-success) |
-| Feature Stubs | ![Complete](https://img.shields.io/badge/-Complete-success) |
-| Multi-GPU Orchestration | ![Complete](https://img.shields.io/badge/-Complete-success) |
-
-See [PLAN.md](PLAN.md) for current sprint status and [ROADMAP.md](ROADMAP.md) for version history.
-
----
-
-## Contributing
-
-We welcome contributions! Please see:
-
-- [CONTRIBUTING.md](CONTRIBUTING.md) - Development workflow
-- [CLAUDE.md](CLAUDE.md) - Coding guidelines and patterns
-
-<div align="center">
-
-[![Issues](https://img.shields.io/badge/Issues-Report_Bug-red?logo=github)](https://github.com/donaldfilimon/abi/issues)
-[![Discussions](https://img.shields.io/badge/Discussions-Ask_Questions-blue?logo=github)](https://github.com/donaldfilimon/abi/discussions)
-[![Contributing](https://img.shields.io/badge/PRs-Welcome-brightgreen?logo=git)](CONTRIBUTING.md)
-
-</div>
-
----
-
-<div align="center">
-
-[![License](https://img.shields.io/github/license/donaldfilimon/abi?style=for-the-badge)](LICENSE)
-
-MIT License - See [LICENSE](LICENSE) for details.
-
-<br/>
-
-**Built with Zig**
-
-</div>
+### Cell Framework Example
+This repository now includes a demonstration of the Cell framework using modern C++23 modules. See `cell_framework/README.md` for build instructions.
